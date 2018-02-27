@@ -1,0 +1,8 @@
+[package]
+name = "mysql_test_gen"
+version = "0.1.0"
+authors = ["Patrick Meredith <pmeredit@gmail.com>"]
+
+[dependencies]
+mysql = "*"
+yaml-rust = "0.4"

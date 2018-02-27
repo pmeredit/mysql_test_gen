@@ -1,0 +1,10 @@
+query: 11
+tables:
+        - name: "foo"
+          data:
+                  - [1,2,34]
+                  - [3,4,5]
+        - name: "bar"
+          data:
+                  - ["hello", 42]
+                  - ["world", 42]
