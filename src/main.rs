@@ -39,7 +39,6 @@ fn use_mysql(cfg: &Yaml) {
         Yaml::Array(ref a) => a,
         _ => panic!("\nTables must be an Array\n"),
     };
-    println!("{:?}", query);
 
     let url = format!("mysql://root@localhost:3306/test");
     let pool = mysql::Pool::new(url).expect("\nCould not open connection to mysql, make sure mysqld is running and has root user\n");
@@ -48,13 +47,18 @@ fn use_mysql(cfg: &Yaml) {
     }
     let res = pool.prep_exec(query, ()).unwrap();
     let mut doc: Doc = Doc::new();
+    doc.insert(ystring!("sql"), Yaml::String(query.to_string()));
     doc.insert(ystring!("expected_names"), 
-        Yaml::Array(
+        Yaml::String(format!("[{}]", 
           res
           .columns_ref()
           .iter()
-          .map(|x| Yaml::String(x.name_str().to_string()))
-          .collect::<Vec<_>>()
+          .map(|x| format!("'{}'", x.name_str()))
+          .fold("".to_string(), |acc, x|
+              if acc == "".to_string() { x }
+              else { format!("{}, {}", acc, x) }
+              )
+        )
         )
         );
 
@@ -69,7 +73,7 @@ fn use_mysql(cfg: &Yaml) {
     let mut expected: Vec<Yaml> = Vec::new();
     for result_row in res {
         expected.push(
-            Yaml::Array(
+            Yaml::String(format!("[{}]",
             result_row
             .unwrap()
             .unwrap()
@@ -77,14 +81,19 @@ fn use_mysql(cfg: &Yaml) {
             .map(|v| {
                 use mysql::Value::*;
                 match v {
-                   NULL => Yaml::Null,
-                   Bytes(v) => Yaml::String(String::from_utf8_lossy(&v).to_string()),
-                   Int(i) => Yaml::Integer(i),
-                   UInt(u) => Yaml::Integer(u as i64),
-                   Float(f) => Yaml::Real(f.to_string()),
+                   NULL => "null".to_string(),
+                   Bytes(v) => format!("'{}'", String::from_utf8_lossy(&v).to_string()),
+                   Int(i) => i.to_string(),
+                   UInt(u) => u.to_string(),
+                   Float(f) => f.to_string(),
                    _ => panic!("\nNot handling Date or Time yet, impl later\n"),
                 }
-            }).collect::<Vec<_>>()
+            })
+            .fold("".to_string(), |acc, x|
+               if acc == "".to_string() { x }
+               else { format!("{}, {}", acc, x) }
+               )
+            )
             )
             );
     }
@@ -145,7 +154,6 @@ fn populate_table(table: &Yaml, pool: &mysql::Pool) {
     pool.prep_exec(format!("DROP TABLE IF EXISTS {}", name), ())
         .expect(&format!("\nFailed to drop table {}\n", name));
     let create_stmt = format!(r"CREATE TABLE {} ({})", name, create_cols);
-    println!("{}", create_stmt);
     pool.prep_exec(create_stmt, ())
         .expect(&format!("\nFailed to create table {}\n", name));
     for row in data.into_iter().skip(1) {
