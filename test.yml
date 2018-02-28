@@ -2,7 +2,7 @@ query: "select * from foo join bar"
 tables:
         - name: "foo"
           data:
-                  - [a, b, c]
+                  - ['a', 'b', 'c']
                   - [1,2,34]
                   - [3,4,5]
         - name: "bar"

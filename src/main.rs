@@ -47,7 +47,7 @@ fn use_mysql(cfg: &Yaml) {
     }
     let res = pool.prep_exec(query, ()).unwrap();
     let mut doc: Doc = Doc::new();
-    doc.insert(ystring!("sql"), Yaml::String(query.to_string()));
+    doc.insert(ystring!("sql"), Yaml::String(format!("'{}'", query)));
     doc.insert(ystring!("expected_names"), 
         Yaml::String(format!("[{}]", 
           res
@@ -103,7 +103,8 @@ fn use_mysql(cfg: &Yaml) {
         let mut emitter = YamlEmitter::new(&mut out_str);
         emitter.dump(&Yaml::Hash(doc)).unwrap();
     }
-    println!("{}", out_str);
+    // Remove double quotes, this is super gross.
+    println!("{}", out_str.replace("\"", ""));
 }
 
 fn populate_table(table: &Yaml, pool: &mysql::Pool) {
