@@ -47,9 +47,12 @@ fn use_mysql(cfg: &Yaml) {
     }
     let res = pool.prep_exec(query, ()).unwrap();
     let mut doc: Doc = Doc::new();
+    // Insert the query as "sql"
     doc.insert(ystring!("sql"), Yaml::String(format!("'{}'", query)));
-    doc.insert(ystring!("expected_names"), 
-        Yaml::String(format!("[{}]", 
+
+    // Insert the expected_names, these are the column names returned.
+    doc.insert(ystring!("expected_names"),
+        Yaml::String(format!("[{}]",
           res
           .columns_ref()
           .iter()
@@ -62,14 +65,26 @@ fn use_mysql(cfg: &Yaml) {
         )
         );
 
-    // do column types later, too annoying right now.
-    /*doc[&ystring!("expected_types")] = res
-        .columns_ref()
-        .iter()
-        .map(|x| x.name_str())
-        .collect::<Vec<_>>()
-    */
+    // Insert the expected_types, these are the column types returned.
+    doc.insert(ystring!("expected_types"),
+        Yaml::String(format!("[{}]",
+          res
+          .columns_ref()
+          .iter()
+          .map(|x| format!("'{}'", to_test_type(x.column_type())))
+          .fold("".to_string(), |acc, x|
+              if acc == "".to_string() { x }
+              else { format!("{}, {}", acc, x) }
+              )
+        )
+        )
+        );
 
+    // Lastly, insert the expected query results. Because we want the leaf
+    // nodes formatted as json arrays, we need to serialize them as strings,
+    // then remove the double quotes. That is why we use single quotes
+    // everywhere for strings. This is super hacky, but it's ok
+    // for just generating examples.
     let mut expected: Vec<Yaml> = Vec::new();
     for result_row in res {
         expected.push(
@@ -210,4 +225,41 @@ fn get_column_types(row: &Yaml) -> Vec<String> {
             BadValue => panic!("\nBad value in data\n"),
         }.to_string()
     }).collect()
+}
+
+fn to_test_type(ty: mysql::consts::ColumnType) -> String {
+    use mysql::consts::ColumnType::*;
+    match ty {
+    MYSQL_TYPE_DECIMAL => "float64",
+    MYSQL_TYPE_TINY => "int",
+    MYSQL_TYPE_SHORT => "int",
+    MYSQL_TYPE_LONG => "int",
+    MYSQL_TYPE_FLOAT => "float64",
+    MYSQL_TYPE_DOUBLE => "float64",
+    MYSQL_TYPE_NULL => "string",
+    MYSQL_TYPE_TIMESTAMP => "string",
+    MYSQL_TYPE_LONGLONG => "int",
+    MYSQL_TYPE_INT24 => "int",
+    MYSQL_TYPE_DATE => "string",
+    MYSQL_TYPE_TIME => "string",
+    MYSQL_TYPE_DATETIME => "string",
+    MYSQL_TYPE_YEAR => "string",
+    MYSQL_TYPE_NEWDATE => "string",
+    MYSQL_TYPE_VARCHAR => "string",
+    MYSQL_TYPE_BIT => "int",
+    MYSQL_TYPE_TIMESTAMP2 => "string",
+    MYSQL_TYPE_DATETIME2 => "string",
+    MYSQL_TYPE_TIME2 => "string",
+    MYSQL_TYPE_JSON => "string",
+    MYSQL_TYPE_NEWDECIMAL => "float64",
+    MYSQL_TYPE_ENUM => "string",
+    MYSQL_TYPE_SET => "string",
+    MYSQL_TYPE_TINY_BLOB => "string",
+    MYSQL_TYPE_MEDIUM_BLOB => "string",
+    MYSQL_TYPE_LONG_BLOB => "string",
+    MYSQL_TYPE_BLOB => "string",
+    MYSQL_TYPE_VAR_STRING => "string",
+    MYSQL_TYPE_STRING => "string",
+    MYSQL_TYPE_GEOMETRY => "string",
+    }.to_string()
 }
